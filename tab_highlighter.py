@@ -71,10 +71,21 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
                 self._find_repeater(c)
 
 
-    def createItem(self, name, colour):
-        item = swing.JMenuItem(name, actionPerformed=lambda x: self._menu_clicked(x, colour))
-        item.setForeground(colour)
+    def _createItemStyled(self, text, colour, style):
+        item = swing.JMenuItem(text, actionPerformed=lambda x: self._menu_clicked(x, colour, style))
+        item.setFont(Font(item.getFont().getName(), style, item.getFont().getSize()))
         return item
+
+    def _createItem(self, name, colour):
+        if colour:
+            subSubMenu = swing.JMenu(name)
+            subSubMenu.setForeground(colour)
+            subSubMenu.add(self._createItemStyled("Normal", colour, Font.PLAIN))
+            subSubMenu.add(self._createItemStyled("Bold", colour, Font.BOLD))
+            subSubMenu.add(self._createItemStyled("Italic", colour, Font.ITALIC))
+            return subSubMenu
+        else:
+            return swing.JMenuItem(name, actionPerformed=lambda x: self._menu_clicked(x, colour, Font.PLAIN))
 
     def createMenuItems(self, invocation):
         if not invocation.getToolFlag() == self._callbacks.TOOL_REPEATER:
@@ -82,19 +93,19 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
 
         menu = ArrayList()
         subMenu = swing.JMenu("Highlight Tab")
-        subMenu.add(self.createItem("Red", Color(255,50,0)))
-        subMenu.add(self.createItem("Blue", Color(0,102,255)))
-        subMenu.add(self.createItem("Green", Color(0,204,51)))
-        subMenu.add(self.createItem("Orange", Color(255, 204, 51)))
-        subMenu.add(self.createItem("None", None))
+        subMenu.add(self._createItem("Red", Color(255,50,0)))
+        subMenu.add(self._createItem("Blue", Color(0,102,255)))
+        subMenu.add(self._createItem("Green", Color(0,204,51)))
+        subMenu.add(self._createItem("Orange", Color(255, 204, 51)))
+        subMenu.add(self._createItem("None", None))
         menu.add(subMenu)
         return menu
 
     @fix_exception
-    def _menu_clicked(self, event, colour):
+    def _menu_clicked(self, event, colour, style):
         self._repeater.setBackgroundAt(self._repeater.getSelectedIndex(), colour)
         tab = self._repeater.getTabComponentAt(self._repeater.getSelectedIndex())
         tabLabel = tab.getComponent(0)
         font = tabLabel.getFont()
-        tabLabel.setFont(Font(font.getName(), Font.PLAIN if colour is None else Font.BOLD, font.getSize()))
+        tabLabel.setFont(Font(font.getName(), style, font.getSize()))
 
