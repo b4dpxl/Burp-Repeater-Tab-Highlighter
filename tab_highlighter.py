@@ -93,9 +93,10 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
 
         menu = ArrayList()
         subMenu = swing.JMenu("Highlight Tab")
-        subMenu.add(self._createItem("Red", Color(255,50,0)))
-        subMenu.add(self._createItem("Blue", Color(0,102,255)))
-        subMenu.add(self._createItem("Green", Color(0,204,51)))
+        subMenu.setForeground(Color(255, 204, 51))
+        subMenu.add(self._createItem("Red", Color(255, 50, 0)))
+        subMenu.add(self._createItem("Blue", Color(102, 153, 255)))
+        subMenu.add(self._createItem("Green", Color(0, 204, 51)))
         subMenu.add(self._createItem("Orange", Color(255, 204, 51)))
         subMenu.add(self._createItem("None", None))
         menu.add(subMenu)
