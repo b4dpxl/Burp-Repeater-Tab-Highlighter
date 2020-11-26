@@ -73,6 +73,10 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
         colours = self.loadSettings()
         if colours:
             for idx, col in enumerate(colours):
+                if idx > self._repeater.getTabCount()-2:
+                    # some tabs must be missing
+                    print("Too many entries!!!")
+                    break
                 if col:  # un-highlighted tabs are empty arrays
                     self._highlight_tab(None, Color(col[0], col[1], col[2]), col[3], idx=idx)
 
