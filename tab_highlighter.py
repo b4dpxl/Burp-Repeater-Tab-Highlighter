@@ -30,9 +30,9 @@ def fix_exception(func):
             return func(self, *args, **kwargs)
         except Exception as e:
             print("\n\n*** PYTHON EXCEPTION")
-            print(e)
+            print(traceback.format_exc(e))
             print("*** END\n")
-            raise
+            # raise
     return wrapper
 
 class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
@@ -47,7 +47,7 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
     Note: For some reason we have to use TabbedPane.setBackgroundAt() to set the colour,
     but (Tab Component).getForeground() to retrieve it :shrug:
 
-    And I can't figure out how to detect a tab name change
+    TODO: try and make this persistent between Burp restarts
     """
 
     def registerExtenderCallbacks(self, callbacks):
@@ -69,7 +69,7 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
         callbacks.registerExtensionStateListener(self)
         callbacks.registerContextMenuFactory(self)
         self._repeater.addChangeListener(self.tabChanged)
-        # preload tab colours
+        # preload tab colours for an extension reload
         for idx in range(self._repeater.getTabCount()-1):
             tab = self._repeater.getTabComponentAt(idx)
             tabLabel = tab.getComponent(0)
@@ -82,10 +82,10 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
         idx = self._repeater.getSelectedIndex()
         tab = self._repeater.getTabComponentAt(idx)
         tabLabel = tab.getComponent(0)
-        if self._tabs.get(tab):
+        if self._tabs.get(tab):  # known tab, set the colour/style in case it was moved. TODO can we detect movement?
             self._highlight_tab(None, *self._tabs.get(tab))
-        else:
-            self._tabs[tab] = [tabLabel.getForeground(), tabLabel.getFont().getStyle()]
+        # else:  # unknown tab. Should only occur for un-highlighted tabs?
+            # self._tabs[tab] = [tabLabel.getForeground(), tabLabel.getFont().getStyle()]
 
     def extensionUnloaded(self):
         self._repeater.removeChangeListener(self.tabChanged)
@@ -104,7 +104,6 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
                 except:
                     pass
                 self._find_repeater(c)
-
 
     def _createItemStyled(self, text, colour, style):
         item = swing.JMenuItem(text, actionPerformed=lambda x: self._highlight_tab(x, colour, style))
@@ -136,7 +135,6 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
         subMenu.add(self._createItem("None", None))
         menu.add(subMenu)
         return menu
-
 
     @fix_exception
     def _highlight_tab(self, event, colour, style):
