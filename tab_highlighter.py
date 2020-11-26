@@ -3,17 +3,17 @@ Change the colour of selected tabs in Burp Repeater. Useful when you have lots o
 
 History:
 0.0.1: First vresion
+0.1.0: Remembers tab setting when re-ordering tabs
 """
 __author__ = "b4dpxl"
 __license__ = "GPL"
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 
 import re
 import sys
 import traceback
 
-from burp import IBurpExtender
-from burp import IContextMenuFactory
+from burp import IBurpExtender, IContextMenuFactory, IExtensionStateListener
 
 # Java imports
 from javax import swing
@@ -35,11 +35,20 @@ def fix_exception(func):
             raise
     return wrapper
 
-class BurpExtender(IBurpExtender, IContextMenuFactory):
+class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
 
     _callbacks = None
     _helpers = None
     _repeater = None
+
+    _tabs = {}
+
+    """
+    Note: For some reason we have to use TabbedPane.setBackgroundAt() to set the colour,
+    but (Tab Component).getForeground() to retrieve it :shrug:
+
+    And I can't figure out how to detect a tab name change
+    """
 
     def registerExtenderCallbacks(self, callbacks):
         # for error handling
@@ -50,11 +59,37 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
         self._helpers = callbacks.getHelpers()
 
         callbacks.setExtensionName(NAME)
-        callbacks.registerContextMenuFactory(self)
 
         for frame in Frame.getFrames():
             self._find_repeater(frame)
+        if not self._repeater:
+            print("ERROR: Unable to locate Repeater")
+            return
 
+        callbacks.registerExtensionStateListener(self)
+        callbacks.registerContextMenuFactory(self)
+        self._repeater.addChangeListener(self.tabChanged)
+        # preload tab colours
+        for idx in range(self._repeater.getTabCount()-1):
+            tab = self._repeater.getTabComponentAt(idx)
+            tabLabel = tab.getComponent(0)
+            self._tabs[tab] = [
+                tabLabel.getForeground(), 
+                tabLabel.getFont().getStyle()
+            ]
+
+    def tabChanged(self, event):
+        idx = self._repeater.getSelectedIndex()
+        tab = self._repeater.getTabComponentAt(idx)
+        tabLabel = tab.getComponent(0)
+        if self._tabs.get(tab):
+            self._highlight_tab(None, *self._tabs.get(tab))
+        else:
+            self._tabs[tab] = [tabLabel.getForeground(), tabLabel.getFont().getStyle()]
+
+    def extensionUnloaded(self):
+        self._repeater.removeChangeListener(self.tabChanged)
+        print("unloaded " + NAME)
 
     def _find_repeater(self, container):
         if container.getComponents() and self._repeater is None:
@@ -72,7 +107,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
 
 
     def _createItemStyled(self, text, colour, style):
-        item = swing.JMenuItem(text, actionPerformed=lambda x: self._menu_clicked(x, colour, style))
+        item = swing.JMenuItem(text, actionPerformed=lambda x: self._highlight_tab(x, colour, style))
         item.setFont(Font(item.getFont().getName(), style, item.getFont().getSize()))
         return item
 
@@ -85,7 +120,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
             subSubMenu.add(self._createItemStyled("Italic", colour, Font.ITALIC))
             return subSubMenu
         else:
-            return swing.JMenuItem(name, actionPerformed=lambda x: self._menu_clicked(x, colour, Font.PLAIN))
+            return swing.JMenuItem(name, actionPerformed=lambda x: self._highlight_tab(x, colour, Font.PLAIN))
 
     def createMenuItems(self, invocation):
         if not invocation.getToolFlag() == self._callbacks.TOOL_REPEATER:
@@ -102,11 +137,15 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
         menu.add(subMenu)
         return menu
 
+
     @fix_exception
-    def _menu_clicked(self, event, colour, style):
-        self._repeater.setBackgroundAt(self._repeater.getSelectedIndex(), colour)
-        tab = self._repeater.getTabComponentAt(self._repeater.getSelectedIndex())
+    def _highlight_tab(self, event, colour, style):
+        idx = self._repeater.getSelectedIndex()
+        self._repeater.setBackgroundAt(idx, colour)
+        tab = self._repeater.getTabComponentAt(idx)
         tabLabel = tab.getComponent(0)
         font = tabLabel.getFont()
         tabLabel.setFont(Font(font.getName(), style, font.getSize()))
+        tabName = self._repeater.getTitleAt(idx)
+        self._tabs[tab] = [colour, style]
 
