@@ -12,6 +12,8 @@ __version__ = "1.0.0"
 
 import json
 import sys
+import threading
+import time
 import traceback
 
 from burp import IBurpExtender, IContextMenuFactory, IExtensionStateListener, IHttpService, IHttpRequestResponse
@@ -45,6 +47,12 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
 
     _tabs = {}
 
+    _colours = None
+
+    _running = True
+    _shouldSave = False
+    _lastIndex = -1
+
     CONFIG_URL = 'http://tabhighlighterextension.local/state'
 
     # Note: For some reason we have to use TabbedPane.setBackgroundAt() to set the colour,
@@ -70,9 +78,9 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
         callbacks.registerContextMenuFactory(self)
         self._repeater.addChangeListener(self.tabChanged)
         # load saved tab colours
-        colours = self.loadSettings()
-        if colours:
-            for idx, col in enumerate(colours):
+        self._colours = self.loadSettings()
+        if self._colours:
+            for idx, col in enumerate(self._colours):
                 if idx > self._repeater.getTabCount()-2:
                     # some tabs must be missing
                     print("Too many entries!!!")
@@ -80,8 +88,18 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
                 if col:  # un-highlighted tabs are empty arrays
                     self._highlight_tab(None, Color(col[0], col[1], col[2]), col[3], idx=idx)
 
+        self._thread = threading.Thread(target=self.scheduledSave)
+        self._thread.daemon = True
+        self._thread.start()
+
+    def scheduledSave(self):
+        while self._running:
+            time.sleep(300)
+            if self._shouldSave:
+                self.saveSettings()
+                self._shouldSave = False
+
     def saveSettings(self, event=None):
-        print("Saving colours")
         settings = []
         newTabTab = self._repeater.getTabComponentAt(self._repeater.getTabCount()-1)
         baseColor = newTabTab.getComponent(0).getForeground()
@@ -89,13 +107,16 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
             tab = self._repeater.getTabComponentAt(idx)
             tabLabel = tab.getComponent(0)
             tabColour = tabLabel.getForeground()
-            if tabColour == baseColor:  # not hightlighted, ignore it. This should handle theme changes
+            if tabColour == baseColor:  # not highlighted, ignore it. This should handle theme changes
                 settings.append([])
             else:
                 settings.append([
                     tabColour.getRed(), tabColour.getGreen(), tabColour.getBlue(), tabLabel.getFont().getStyle()
                 ])
-        self._callbacks.addToSiteMap(ConfigStoreRequestResponse(self.CONFIG_URL, json.dumps(settings)))
+        if not settings == self._colours:
+            print("Saving colours")
+            self._callbacks.addToSiteMap(ConfigStoreRequestResponse(self.CONFIG_URL, json.dumps(settings)))
+            self._colours == settings
 
     def loadSettings(self):
         requestResponse = self._callbacks.getSiteMap(self.CONFIG_URL)
@@ -111,9 +132,13 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
         tabLabel = tab.getComponent(0)
         if self._tabs.get(tab):  
             self._highlight_tab(None, *self._tabs.get(tab))
+        if not idx == self._lastIndex:
+            self._shouldSave = True
+        self._lastIndex = idx
 
     def extensionUnloaded(self):
         self._repeater.removeChangeListener(self.tabChanged)
+        self._running = False
         self.saveSettings()
         print("Unloaded " + NAME)
 
@@ -176,7 +201,7 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
         tabLabel.setFont(tabLabel.getFont().deriveFont(style))
         tabName = self._repeater.getTitleAt(idx)
         self._tabs[tab] = [colour, style]
-
+        self._shouldSave = True
 
 class ConfigStoreHttpService(IHttpService):
 
