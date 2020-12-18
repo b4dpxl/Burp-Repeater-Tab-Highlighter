@@ -25,7 +25,7 @@ from java.awt import Color, Frame, Font
 from urlparse import urlparse
 
 
-NAME = "Tab Highlighter"
+NAME = "Repeater Tab Highlighter"
 
 
 def fix_exception(func):
@@ -88,6 +88,7 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
                 if col:  # un-highlighted tabs are empty arrays
                     self._highlight_tab(None, Color(col[0], col[1], col[2]), col[3], idx=idx)
 
+        self._tabCount = self._repeater.getTabCount()
         self._thread = threading.Thread(target=self.scheduledSave)
         self._thread.daemon = True
         self._thread.start()
@@ -126,14 +127,20 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
             body = self._helpers.bytesToString(requestResponse[0].getResponse()[resp.getBodyOffset():]).encode('ascii', 'ignore')
             return json.loads(body)
 
+    @fix_exception
     def tabChanged(self, event):
         idx = self._repeater.getSelectedIndex()
         tab = self._repeater.getTabComponentAt(idx)
         tabLabel = tab.getComponent(0)
         if self._tabs.get(tab):  
             self._highlight_tab(None, *self._tabs.get(tab))
-        if not idx == self._lastIndex:
+        
+        if not self._tabCount == self._repeater.getTabCount():  # opened or closed a tab
             self._shouldSave = True
+        elif self._lastIndex and not idx == self._lastIndex:
+            self._shouldSave = True
+
+        self._tabCount = self._repeater.getTabCount()
         self._lastIndex = idx
 
     def extensionUnloaded(self):
@@ -182,6 +189,7 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory):
         subMenu.add(self._createItem("Blue", Color(102, 153, 255)))
         subMenu.add(self._createItem("Green", Color(0, 204, 51)))
         subMenu.add(self._createItem("Orange", Color(255, 204, 51)))
+        subMenu.add(self._createItem("Purple", Color(204, 51, 255)))
         subMenu.add(self._createItem("None", None))
         subMenu.add(swing.JSeparator())
         save = swing.JMenuItem("Save now", actionPerformed=self.saveSettings)
