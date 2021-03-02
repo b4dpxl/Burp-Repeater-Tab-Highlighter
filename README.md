@@ -1,3 +1,5 @@
+_**Update: I have a Java version of this extension in development [here](https://github.com/b4dpxl/Burp-Repeater-Tab-Highlighter-Java)**_
+
 # Burp Repeater Tab Highlighter
 
 This [Burp Suite](https://portswigger.net/burp) extension allows you to highlight Repeater tabs 
@@ -19,3 +21,4 @@ However, this means that if Burp crashes you might lose settings, or things migh
 you've inserted (not added to the end) or moved Repeater tabs. Additionally, if you insert/move 
 tabs without the extension running things might get confused. The states are just stored in an 
 array by the tab position.
+_
