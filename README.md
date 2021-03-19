@@ -1,4 +1,4 @@
-_**Update: I have a Java version of this extension in development [here](https://github.com/b4dpxl/Burp-Repeater-Tab-Highlighter-Java)**_
+_**Update: I have released a Java version of this extension [here](https://github.com/b4dpxl/Burp-Repeater-Tab-Highlighter-Java), so this one has been archived**_
 
 # Burp Repeater Tab Highlighter
 
